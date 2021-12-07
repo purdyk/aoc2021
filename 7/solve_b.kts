@@ -1,3 +1,4 @@
+#!/usr/bin/env kotlin
 import java.io.File
 import java.nio.charset.Charset
 import java.util.regex.Pattern

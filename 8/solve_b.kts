@@ -9,13 +9,6 @@ val input = File("./input")
   .filter { it.isNotBlank() }
   .map { it.split(" | ").map { it.split(" ") } }
 
-val uniqueMaps = mapOf(
-  3 to 7,
-  4 to 4,
-  2 to 1,
-  7 to 8
-)
-
 val strMaps = mapOf(
   "abcefg" to 0,
   "cf" to 1,
@@ -29,58 +22,27 @@ val strMaps = mapOf(
   "abcdfg" to 9
 )
 
-val pairMaps = mapOf(
-  (1 to 4) to ("" to "bd"),
-  (1 to 7) to ("" to "a"),
-  (1 to 8) to ("" to "abdeg"),
-  (4 to 7) to ("bd" to "a"),
-  (4 to 8) to ("" to "aeg"),
-  (7 to 8) to ("" to "bdeg")
-)
+fun findA(scramble: List<String>): List<Pair<Char, Char>> {
+  val seven = scramble.first { it.length == 3 }.toSet()
+  val one = scramble.first { it.length == 2}.toSet()
 
-fun subtractGross(a: Set<Char>, b: Set<Char>, knownInA: String, known: Map<Char, Char>): Pair<Char, Char>? {
-  if (knownInA.length == 0) return null
+  val a = (seven - one).first()
 
-  // unique to a
-  var unknownInA = a - b - known.keys
-
-  // remove known keys from static
-  val possible = knownInA.filterNot { known.values.contains(it) }
-
-  if (possible.length == 1) {
-    val found = unknownInA.first() to possible.first()
-    return found
-  }
-
-  return null
-}
-
-fun findA(a: Pair<Int, String>, b: Pair<Int, String>, known: Map<Char, Char>): List<Pair<Char, Char>> {
-  if (a.first == b.first) return emptyList()
-
-  val sets = listOf(a, b).map { it.first to it.second.toSet() }
-
-  val small = sets.minByOrNull { it.first }!!
-  val big = sets.maxByOrNull { it.first }!!
-
-  val deltas = pairMaps[small.first to big.first]!!
-
-  return listOfNotNull(
-    subtractGross(small.second, big.second, deltas.first, known),
-    subtractGross(big.second, small.second, deltas.second, known)
+  return listOf(
+    a to 'a'
   )
 }
 
 fun findCF(scramble: List<String>): List<Pair<Char, Char>> {
   val f609 = scramble.filter { it.length == 6 }.map { it.toSet() }
-  val one = scramble.filter { it.length == 2 }.map { it.toSet() }.first()
+  val one = scramble.first { it.length == 2 }.toSet()
 
-  val f = f609.map { one.intersect(it) }.filter { it.size == 1 }.first()
-  val c = one - f
+  val f = f609.map { one.intersect(it) }.first { it.size == 1 }.first()
+  val c = (one - f).first()
 
   return listOf(
-    f.first() to 'f',
-    c.first() to 'c'
+    f to 'f',
+    c to 'c'
   )
 }
 
@@ -91,18 +53,19 @@ fun findBE(scramble: List<String>, known: Map<Char, Char>): List<Pair<Char, Char
   val c = known.entries.first { it.value == 'c' }.key
   val f = known.entries.first { it.value == 'f' }.key
 
-  val two = f235.filter { it.contains(c) && !it.contains(f) }.first()
-  val five = f235.filter { !it.contains(c) && it.contains(f) }.first()
+  val two = f235.first { it.contains(c) && !it.contains(f) }
+  val five = f235.first { !it.contains(c) && it.contains(f) }
 
-  val b = five - two - f
-  val e = two - five - c
+  val b = (five - two - f).first()
+  val e = (two - five - c).first()
 
   return listOf(
-    b.first() to 'b',
-    e.first() to 'e'
+    b to 'b',
+    e to 'e'
   )
 }
 
+// must be called after BE
 fun findDG(scramble: List<String>, known: Map<Char, Char>): List<Pair<Char, Char>> {
   val f609 = scramble.filter { it.length == 6 }.map { it.toSet() }
 
@@ -112,30 +75,24 @@ fun findDG(scramble: List<String>, known: Map<Char, Char>): List<Pair<Char, Char
   val zero = f609.filter { it.contains(c) && it.contains(e) }.first()
   val nine = f609.filter { !it.contains(e) }.first()
 
-  val d = nine - zero
-  val g = zero - known.keys - d
+  val d = (nine - zero).first()
+  val g = (zero - known.keys - d).first()
 
   return listOf(
-    d.first() to 'd',
-    g.first() to 'g'
+    d to 'd',
+    g to 'g'
   )
 }
 
 fun infer(scramble: List<String>): Map<Char, Char> {
-  val fixMap = mutableMapOf<Char, Char>()
-  val uniques = scramble.mapNotNull { uniqueMaps[it.length]?.let { int -> int to it } }
+  val known = mutableMapOf<Char, Char>()
 
-  uniques.indices.forEach { a ->
-    uniques.indices.filter { it > a }.forEach { b ->
-      findA(uniques[a], uniques[b], fixMap).forEach { fixMap[it.first] = it.second }
-    }
-  }
+  known.putAll(findA(scramble))
+  known.putAll(findCF(scramble))
+  known.putAll(findBE(scramble, known))
+  known.putAll(findDG(scramble, known))
 
-  findCF(scramble).forEach { fixMap[it.first] = it.second }
-  findBE(scramble, fixMap).forEach { fixMap[it.first] = it.second }
-  findDG(scramble, fixMap).forEach { fixMap[it.first] = it.second }
-
-  return fixMap
+  return known
 }
 
 val numbers = input.map {
